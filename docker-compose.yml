@@ -1,0 +1,52 @@
+version: "3"
+services:
+  maria-db:
+    container_name: maria-db
+    image: ghcr.io/linuxserver/mariadb
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=biobox #optional
+      - MYSQL_USER=biobox #optional
+      - MYSQL_PASSWORD=biobox #optional
+    ports:
+      - "3306:3306"
+    volumes:
+      - /home/pi/Biobox/mariadb/:/var/lib/mysql
+    restart: unless-stopped
+  eclipse-mqtt:
+    container_name: eclipse-mqtt
+    image: eclipse-mosquitto
+    ports:
+      - 1883:1883
+      - 9001:9001
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+  biobox-backend:
+    container_name: biobox-backend
+    build: ./biobox-backend
+    ports:
+      - 3000:3000
+    environment:
+      - DB_URL=mariadb://biobox:biobox@maria-db:3306/biobox
+      - MQTT_URL=mqtt://eclipse-mqtt:1883
+      - SET_TIMEOUT_TIME=20000
+      - SERVICE_ENV=CLOUD
+    links:
+      - maria-db
+      - eclipse-mqtt
+  biobox-socket:
+    container_name: biobox-socket
+    build: ./biobox-master-socket
+    ports:
+      - 3001:3000
+    environment:
+      - MQTT_URL=mqtt://eclipse-mqtt:1883
+    links:
+      - eclipse-mqtt
+  biobox-frontend:
+    container_name: biobox-frontend
+    build: ./biobox-frontend
+    ports:
+      - "80:80"
